@@ -130,8 +130,8 @@ if [[ -e "$TARGET" ]]; then sudo cp -a "$TARGET" "$BACKUP/mpro.ko"; had_module=1
 if [[ -e "$XORG" ]]; then sudo cp -a "$XORG" "$BACKUP/99-vocore.conf"; had_xorg=1; fi
 if [[ -e "$AUTO" ]]; then sudo cp -a "$AUTO" "$BACKUP/mpro.conf"; had_auto=1; fi
 if systemctl is-enabled --quiet KlipperScreen; then had_enabled=1; fi
-printf 'had_module=%s\nhad_xorg=%s\nhad_auto=%s\nhad_enabled=%s\n' \
-    "$had_module" "$had_xorg" "$had_auto" "$had_enabled" |
+printf 'had_module=%s\nhad_xorg=%s\nhad_auto=%s\nhad_enabled=%s\nkernel=%s\n' \
+    "$had_module" "$had_xorg" "$had_auto" "$had_enabled" "$KERNEL" |
     sudo tee "$BACKUP/state" >/dev/null
 sudo chmod 600 "$BACKUP/state"
 
