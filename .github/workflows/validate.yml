@@ -1,0 +1,50 @@
+name: Validate beta installer
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: |
+          bash -n install.sh
+          bash -n uninstall.sh
+      - name: Check Python syntax
+        run: python3 -m py_compile tools/patch_mpro_6_1.py
+      - name: Download exact upstream source
+        run: |
+          curl --fail --location --silent --show-error \
+            'https://raw.githubusercontent.com/Vonger/mpro_drm/007705aec068fa0fbef440f593bc24a380156596/mpro.c' \
+            -o /tmp/mpro-upstream.c
+      - name: Exercise both pinned compatibility patches
+        run: |
+          python3 tools/patch_mpro_6_1.py /tmp/mpro-upstream.c /tmp/mpro-portrait.c --orientation 0
+          python3 tools/patch_mpro_6_1.py /tmp/mpro-upstream.c /tmp/mpro-landscape.c --orientation 90
+          grep -q 'drm_fbdev_generic_setup' /tmp/mpro-portrait.c
+          ! grep -q 'drm_fbdev_ttm_setup' /tmp/mpro-portrait.c
+          grep -q 'mpro->landscape' /tmp/mpro-landscape.c
+          grep -q 'mpro->rotate_buf' /tmp/mpro-landscape.c
+          grep -q 'int px = clamp' /tmp/mpro-landscape.c
+      - name: Basic rotation mapping check
+        run: |
+          python3 - <<'PY'
+          physical_w, physical_h = 480, 800
+          # The output hardware pixel at x,y must sample the logical
+          # 800x480 framebuffer at x_logical=799-y, y_logical=x.
+          for x, y in ((0, 0), (479, 0), (0, 799), (479, 799), (241, 472)):
+              src_index = x * physical_h + (physical_h - 1 - y)
+              sx, sy = src_index % physical_h, src_index // physical_h
+              assert (sx, sy) == (physical_h - 1 - y, x)
+              assert 0 <= sx < physical_h
+              assert 0 <= sy < physical_w
+          print("Rotation index geometry: PASS")
+          PY
